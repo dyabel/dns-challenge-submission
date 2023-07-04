@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "sdnn",
+            "type": "python",
+            "request": "launch",
+            "program": "baseline_solution/sdnn_delays/train_sdnn.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args":[
+                "-path",
+                "/home/dy/datasets/IntelDNS/"
+            ]
+        },
+        {
+            "name": "sdnn-rnn",
+            "type": "python",
+            "request": "launch",
+            "program": "baseline_solution/sdnn_delays/train_sdnn_rnn.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args":[
+                "-path",
+                "/home/dy/datasets/IntelDNS/",
+                "--step",
+                "retrain"
+            ]
+    }
+    ]
+}
