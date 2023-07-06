@@ -386,7 +386,7 @@ if __name__ == '__main__':
         stats.save(trained_folder + '/')
 
     net.load_state_dict(torch.load(trained_folder + '/network.pt'))
-    net.export_hdf5(trained_folder + '/network.net')
+    # net.export_hdf5(trained_folder + '/network.net')
 
     params_dict = {}
     for key, val in args._get_kwargs():
