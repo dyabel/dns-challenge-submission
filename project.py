@@ -218,7 +218,7 @@ class Project:
         args_hparam_rnn.add_argument('--rnn_size', default=64, type=int,
                                    help='RNN Hidden layer size (must be a multiple of num_pe, see modules/edgedrnn.py)')
         args_hparam_rnn.add_argument('--rnn_dropout', default=0, type=float, help='RNN Hidden layer size')
-        args_hparam_rnn.add_argument('--fc_extra_size', default=0, type=float, help='RNN Hidden layer size')
+        args_hparam_rnn.add_argument('--fc_extra_size', default=0, type=int, help='RNN Hidden layer size')
         args_hparam_rnn.add_argument('--fc_dropout', default=0, type=float, help='RNN Hidden layer size')
         args_hparam_rnn.add_argument('--use_hardsigmoid', default=0, type=int, help='Use hardsigmoid')
         args_hparam_rnn.add_argument('--use_hardtanh', default=0, type=int, help='Use hardtanh')

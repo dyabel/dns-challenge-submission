@@ -6,6 +6,8 @@ import deltarnn.networks.nn_util as util
 from deltarnn.networks.layers.deltalstm import DeltaLSTM
 from deltarnn.networks.layers.deltagru import DeltaGRU
 from deltarnn.networks.layers.deltalstm3 import DeltaLSTM3
+from lava.lib.dl import slayer
+import torch.nn.functional as F
 
 
 class Model(nn.Module):
@@ -112,11 +114,28 @@ class Model(nn.Module):
                                 )
         else:
             raise RuntimeError("Please key in a supported RNN type in the argument.")
+        threshold = 0.1
+        tau_grad = 0.1
+        scale_grad = 0.8
+        
+        sigma_params = { # sigma-delta neuron parameters
+            'threshold'     : threshold,   # delta unit threshold
+            'tau_grad'      : tau_grad,    # delta unit surrogate gradient relaxation parameter
+            'scale_grad'    : scale_grad,  # delta unit surrogate gradient scale parameter
+            'requires_grad' : False,  # trainable threshold
+            'shared_param'  : True,   # layer wise threshold
+        }
+        sdnn_params = {
+            **sigma_params,
+            'activation'    : F.relu, # activation function
+        }
+        self.input_quantizer = lambda x: slayer.utils.quantize(x, step=1 / 64)
 
         # Extra FC layer after RNN
         if self.fc_extra_size != 0:
             self.fc_extra = nn.Sequential(
-                nn.Linear(in_features=self.rnn_size, out_features=self.fc_extra_size, bias=True),
+                slayer.block.sigma_delta.Dense(sdnn_params, self.rnn_size, self.fc_extra_size, weight_norm=False, delay=True, delay_shift=True),
+                # nn.Linear(in_features=self.rnn_size, out_features=self.fc_extra_size, bias=True),
                 nn.ReLU(),
                 nn.Dropout(p=self.fc_dropout)
             )
