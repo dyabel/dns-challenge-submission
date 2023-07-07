@@ -239,7 +239,9 @@ class Model(nn.Module):
 
         # FC Forward
         if self.fc_extra_size:
-            out_fc = self.fc_extra(rnn_output)
+            rnn_output = rnn_output.permute(1, 2, 0)
+            #supposed to be torch.Size([32, 64, 3751])
+            out_fc = self.fc_extra(rnn_output).permute(2, 0, 1)
             out_fc = util.quantize_tensor(out_fc, self.aqi, self.aqf, qa)
             out_fc = self.cl(out_fc)
         else:

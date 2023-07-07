@@ -81,7 +81,6 @@ class Network(torch.nn.Module):
 
     def forward(self, noisy):
         x = noisy - self.stft_mean
-
         for block in self.blocks:
             x = block(x)
 
