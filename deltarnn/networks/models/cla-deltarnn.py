@@ -139,6 +139,7 @@ class Model(nn.Module):
                 nn.ReLU(),
                 nn.Dropout(p=self.fc_dropout)
             )
+            self.fc_extra[0].pre_hook_fx = self.input_quantizer
             cl_in_features = self.fc_extra_size
         else:
             cl_in_features = self.rnn_size
