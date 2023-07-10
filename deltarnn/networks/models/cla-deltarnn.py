@@ -94,24 +94,24 @@ class Model(nn.Module):
                                   )
         elif self.rnn_type == 'GRU':
             proj.additem("rnn_layer", "DeltaGRU")
-            self.rnn = DeltaGRU(input_size=self.input_size,
-                                hidden_size=self.rnn_size,
-                                num_layers=self.rnn_layers,
-                                thx=self.thx,
-                                thh=self.thh,
-                                qa=self.qa,
-                                aqi=self.aqi,
-                                aqf=self.aqf,
-                                qw=self.qw,
-                                wqi=self.wqi,
-                                wqf=self.wqf,
-                                nqi=self.nqi,
-                                nqf=self.nqf,
-                                bw_acc=self.bw_acc,
-                                use_hardtanh=self.use_hardtanh,
-                                use_hardsigmoid=self.use_hardsigmoid,
-                                debug=self.debug
-                                )
+            # self.rnn = DeltaGRU(input_size=self.input_size,
+            #                     hidden_size=self.rnn_size,
+            #                     num_layers=self.rnn_layers,
+            #                     thx=self.thx,
+            #                     thh=self.thh,
+            #                     qa=self.qa,
+            #                     aqi=self.aqi,
+            #                     aqf=self.aqf,
+            #                     qw=self.qw,
+            #                     wqi=self.wqi,
+            #                     wqf=self.wqf,
+            #                     nqi=self.nqi,
+            #                     nqf=self.nqf,
+            #                     bw_acc=self.bw_acc,
+            #                     use_hardtanh=self.use_hardtanh,
+            #                     use_hardsigmoid=self.use_hardsigmoid,
+            #                     debug=self.debug
+            #                     )
         else:
             raise RuntimeError("Please key in a supported RNN type in the argument.")
         threshold = 0.1
@@ -129,14 +129,14 @@ class Model(nn.Module):
             **sigma_params,
             'activation'    : F.relu, # activation function
         }
-        # self.input_quantizer = lambda x: slayer.utils.quantize(x, step=1 / 64)
+        self.input_quantizer = lambda x: slayer.utils.quantize(x, step=1 / 64)
 
         # Extra FC layer after RNN
         if self.fc_extra_size != 0:
             self.fc_extra = nn.Sequential(
                 # slayer.block.sigma_delta.Dense(sdnn_params, self.rnn_size, self.fc_extra_size, weight_norm=False, delay=True, delay_shift=True),
-                # nn.Linear(in_features=257, out_features=self.fc_extra_size, bias=True),
-                nn.Linear(in_features=self.rnn_size, out_features=self.fc_extra_size, bias=True),
+                nn.Linear(in_features=257, out_features=self.fc_extra_size, bias=True),
+                # nn.Linear(in_features=self.rnn_size, out_features=self.fc_extra_size, bias=True),
                 nn.ReLU(),
                 nn.Dropout(p=self.fc_dropout)
             )
@@ -158,7 +158,7 @@ class Model(nn.Module):
 
     def reset_parameters(self):
         # Initialize DeltaLSTM
-        self.rnn.reset_parameters()
+        # self.rnn.reset_parameters()
 
         # Initialize FC Extra
         if hasattr(self, 'fc_extra'):
@@ -229,7 +229,7 @@ class Model(nn.Module):
     def forward(self, input: Tensor, x_p_0: Tensor = None, h_0: Tensor = None, h_p_0: Tensor = None,
                 c_0: Tensor = None, dm_0: Tensor = None):
         # Flatten Parameters
-        self.rnn.flatten_parameters()
+        # self.rnn.flatten_parameters()
 
         # Overhead
         self.statistics = {}  # Reset Debug Dict
@@ -237,8 +237,9 @@ class Model(nn.Module):
         reg = None
 
         # RNN Forward
-        rnn_output, (x_p_n, h_n, h_p_n, c_n, dm_n), reg = self.rnn(input, x_p_0, h_0, h_p_0, c_0, dm_0)
-        # rnn_output = input
+        # rnn_output, (x_p_n, h_n, h_p_n, c_n, dm_n), reg = self.rnn(input, x_p_0, h_0, h_p_0, c_0, dm_0)
+        # rnn_output = rnn_output.transpose(0, 1)  # Transpose RNN Output to (N, T, H)
+        rnn_output = input
         rnn_output = rnn_output.transpose(0, 1)  # Transpose RNN Output to (N, T, H)
 
         # FC Forward

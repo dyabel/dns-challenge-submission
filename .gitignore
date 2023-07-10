@@ -3,3 +3,4 @@ Trained*
 checkpoints/
 runs/
 .history/
+**/__pycache__/
