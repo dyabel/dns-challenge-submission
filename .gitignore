@@ -2,3 +2,4 @@ Trained*
 *.pt
 checkpoints/
 runs/
+.history/

@@ -25,7 +25,8 @@
             "justMyCode": false,
             "args":[
                 "-path",
-                "/home/dy/datasets/IntelDNS/",
+                "/mnt/data/projects/neuralmorphic-computing/audio-denoise/IntelNeuromorphicDNSChallenge/data/datasets_fullband/",
+                // "/home/dy/datasets/IntelDNS/",
                 "--step",
                 "retrain"
             ]
