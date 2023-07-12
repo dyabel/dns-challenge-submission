@@ -17,6 +17,10 @@ from torch.utils.tensorboard import SummaryWriter
 from lava.lib.dl import slayer
 from audio_dataloader import DNSAudio
 from snr import si_snr
+import importlib
+from project import Project
+import torch.nn as nn
+from wavenet.model import TCN
 
 
 def collate_fn(batch):
@@ -46,7 +50,7 @@ def stft_mixer(stft_abs, stft_angle, n_fft=512):
 
 
 class Network(torch.nn.Module):
-    def __init__(self, threshold=0.1, tau_grad=0.1, scale_grad=0.8, max_delay=64, out_delay=0):
+    def __init__(self, threshold=0.1, tau_grad=0.1, scale_grad=0.8, max_delay=64, out_delay=0, args=None):
         super().__init__()
         self.stft_mean = 0.2
         self.stft_var = 1.5
@@ -67,25 +71,27 @@ class Network(torch.nn.Module):
 
         self.input_quantizer = lambda x: slayer.utils.quantize(x, step=1 / 64)
 
-        self.blocks = torch.nn.ModuleList([
-            slayer.block.sigma_delta.Input(sdnn_params),
-            slayer.block.sigma_delta.Dense(sdnn_params, 257, 512, weight_norm=False, delay=True, delay_shift=True),
-            slayer.block.sigma_delta.Dense(sdnn_params, 512, 512, weight_norm=False, delay=True, delay_shift=True),
-            slayer.block.sigma_delta.Output(sdnn_params, 512, 257, weight_norm=False),
-        ])
+        self.net = TCN(257)
 
-        self.blocks[0].pre_hook_fx = self.input_quantizer
-
-        self.blocks[1].delay.max_delay = max_delay
-        self.blocks[2].delay.max_delay = max_delay
+        # self.blocks[1].delay.max_delay = max_delay
+        # self.blocks[2].delay.max_delay = max_delay
 
     def forward(self, noisy):
         x = noisy - self.stft_mean
+        # forward_propagation = self.train_func.forward_propagation
+        x = x.transpose(1, 2)
+        # print(x.shape)
+        x = self.net(x)
+        # print(x.shape)
 
-        for block in self.blocks:
-            x = block(x)
+        # for block in self.blocks:
+        #     x = block(x)
+        # x = x.transpose(0, 1)
+        # x = x.transpose(1, 2)
+        x = x.transpose(1,2)
 
         mask = torch.relu(x + 1)
+        # print(noisy.shape, mask.shape)
         return slayer.axon.delay(noisy, self.out_delay) * mask
 
     def grad_flow(self, path):
@@ -187,7 +193,7 @@ if __name__ == '__main__':
                         help='gradient clipping limit')
     parser.add_argument('-exp',
                         type=str,
-                        default='',
+                        default='rnn',
                         help='experiment differentiater string')
     parser.add_argument('-seed',
                         type=int,
@@ -201,8 +207,7 @@ if __name__ == '__main__':
                         type=str,
                         default='../../data/MicrosoftDNS_4_ICASSP/',
                         help='dataset path')
-
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     identifier = args.exp
     if args.seed is not None:
@@ -232,14 +237,14 @@ if __name__ == '__main__':
                       args.tau_grad,
                       args.scale_grad,
                       args.dmax,
-                      args.out_delay).to(device)
+                      args.out_delay, args).to(device)
         module = net
     else:
         net = torch.nn.DataParallel(Network(args.threshold,
                                             args.tau_grad,
                                             args.scale_grad,
                                             args.dmax,
-                                            args.out_delay).to(device),
+                                            args.out_delay, args).to(device),
                                     device_ids=args.gpu)
         module = net.module
 
@@ -266,6 +271,7 @@ if __name__ == '__main__':
 
     base_stats = slayer.utils.LearningStats(accuracy_str='SI-SNR',
                                             accuracy_unit='dB')
+
     # print()
     # print('Base Statistics')
     # nop_stats(train_loader, base_stats, base_stats.training)
@@ -302,8 +308,8 @@ if __name__ == '__main__':
             torch.nn.utils.clip_grad_norm_(net.parameters(), args.clip)
             optimizer.step()
 
-            if i < 10:
-                net.grad_flow(path=trained_folder + '/')
+            # if i < 10:
+            #     net.grad_flow(path=trained_folder + '/')
 
             if torch.isnan(score).any():
                 score[torch.isnan(score)] = 0
@@ -367,7 +373,7 @@ if __name__ == '__main__':
         stats.save(trained_folder + '/')
 
     net.load_state_dict(torch.load(trained_folder + '/network.pt'))
-    net.export_hdf5(trained_folder + '/network.net')
+    # net.export_hdf5(trained_folder + '/network.net')
 
     params_dict = {}
     for key, val in args._get_kwargs():
