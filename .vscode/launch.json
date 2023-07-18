@@ -5,13 +5,21 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        },
+        {
             "name": "sdnn",
             "type": "python",
             "request": "launch",
             "program": "baseline_solution/sdnn_delays/train_sdnn.py",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args":[
+            "args": [
                 "-path",
                 "/home/dy/datasets/IntelDNS/"
             ]
@@ -23,13 +31,29 @@
             "program": "baseline_solution/sdnn_delays/train_sdnn_rnn.py",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args":[
+            "args": [
                 "-path",
                 "/mnt/data/projects/neuralmorphic-computing/audio-denoise/IntelNeuromorphicDNSChallenge/data/datasets_fullband/",
                 // "/home/dy/datasets/IntelDNS/",
                 "--step",
                 "retrain"
             ]
-    }
+        },
+        {
+            "name": "sdnn-frcrn",
+            "type": "python",
+            "request": "launch",
+            "program": "baseline_solution/sdnn_delays/train_sdnn_frcrn.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": [
+                "-path",
+                "/mnt/data/projects/neuralmorphic-computing/audio-denoise/IntelNeuromorphicDNSChallenge/data/datasets_fullband/",
+                // "/home/dy/datasets/IntelDNS/",
+                "-b",
+                "2",
+                "debug"
+            ]
+        }
     ]
 }

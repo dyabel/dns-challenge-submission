@@ -31,6 +31,7 @@ class S4Model(nn.Module):
         d_output=10,
         d_model=256,
         n_layers=4,
+        # n_layers=4,
         dropout=0.2,
         prenorm=False,
         args=None
