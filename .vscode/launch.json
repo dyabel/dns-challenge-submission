@@ -46,6 +46,9 @@
             "program": "baseline_solution/sdnn_delays/train_sdnn_frcrn.py",
             "console": "integratedTerminal",
             "justMyCode": false,
+            "env":{
+                "CUDA_VISIBLE_DEVICES":"1"
+            },
             "args": [
                 "-path",
                 "/mnt/data/projects/neuralmorphic-computing/audio-denoise/IntelNeuromorphicDNSChallenge/data/datasets_fullband/",

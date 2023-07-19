@@ -280,7 +280,7 @@ if __name__ == '__main__':
 
     stats = slayer.utils.LearningStats(accuracy_str='SI-SNR',
                                        accuracy_unit='dB')
-
+    # ckpt = torch.load(trained_folder + '/network.pt')
     for epoch in range(args.epoch):
         t_st = datetime.now()
         for i, (noisy, clean, noise) in enumerate(train_loader):
@@ -299,7 +299,7 @@ if __name__ == '__main__':
 
             clean_rec = out_list[4]
             score = si_snr(clean_rec, clean)
-            loss = net.net.loss(noisy,  clean, out_list)
+            loss = net.net.loss(noisy,  clean, out_list)['loss']
             # loss = lam * F.mse_loss(denoised_abs, clean_abs) + (100 - torch.mean(score))
 
             assert torch.isnan(loss) == False
@@ -348,7 +348,7 @@ if __name__ == '__main__':
                 clean_rec = out_list[4]
                 score = si_snr(clean_rec, clean)
                 # loss = lam * net.loss + (100 - torch.mean(score))
-                loss = net.net.loss(noisy,  clean, out_list)
+                loss = net.net.loss(noisy,  clean, out_list)['loss']
                 stats.validation.correct_samples += torch.sum(score).item()
                 stats.validation.loss_sum += loss.item()
                 stats.validation.num_samples += noisy.shape[0]

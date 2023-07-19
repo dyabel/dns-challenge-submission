@@ -80,6 +80,81 @@ class ComplexUniDeepFsmn_L1(nn.Module):
         output = torch.transpose(output, 1, 3)
         return output
 
+class ComplexLinear(nn.Module):
+    # https://github.com/litcoderr/ComplexCNN/blob/master/complexcnn/modules.py
+    def __init__(self,
+                 in_channel,
+                 out_channel,
+                 ):
+        super().__init__()
+
+        # Model components
+        self.linear_re = nn.Linear(in_channel, out_channel
+            )
+        self.linear_im = nn.Linear(
+            in_channel,
+            out_channel)
+
+    def forward(self, x):
+        r"""
+
+        Args:
+            x: torch with shape: [batch,channel,axis1,axis2,2]
+        """
+        real = self.linear_re(x[..., 0]) - self.linear_im(x[..., 1])
+        imaginary = self.linear_re(x[..., 1]) + self.linear_im(x[..., 0])
+        output = torch.stack((real, imaginary), dim=-1)
+        return output
+
+
+
+class ComplexConv1d(nn.Module):
+    # https://github.com/litcoderr/ComplexCNN/blob/master/complexcnn/modules.py
+    def __init__(self,
+                 in_channel,
+                 out_channel,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 bias=True,
+                 **kwargs):
+        super().__init__()
+
+        # Model components
+        self.conv_re = nn.Conv1d(
+            in_channel,
+            out_channel,
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+            **kwargs)
+        self.conv_im = nn.Conv1d(
+            in_channel,
+            out_channel,
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+            **kwargs)
+
+    def forward(self, x):
+        r"""
+
+        Args:
+            x: torch with shape: [batch,channel,axis1,axis2,2]
+        """
+        real = self.conv_re(x[..., 0]) - self.conv_im(x[..., 1])
+        imaginary = self.conv_re(x[..., 1]) + self.conv_im(x[..., 0])
+        output = torch.stack((real, imaginary), dim=-1)
+        return output
+
 
 class ComplexConv2d(nn.Module):
     # https://github.com/litcoderr/ComplexCNN/blob/master/complexcnn/modules.py
@@ -172,6 +247,37 @@ class ComplexConvTranspose2d(nn.Module):
         real = self.tconv_re(x[..., 0]) - self.tconv_im(x[..., 1])
         imaginary = self.tconv_re(x[..., 1]) + self.tconv_im(x[..., 0])
         output = torch.stack((real, imaginary), dim=-1)
+        return output
+    
+class ComplexGLU(nn.Module):
+    def __init__(self, dim=-1):
+        super().__init__()
+        self.glu_re = nn.GLU(dim=dim)
+        self.glu_im = nn.GLU(dim=dim)
+    
+    def forward(self, x):
+        real = self.glu_re(x[..., 0])
+        imag = self.glu_im(x[..., 1])
+        output = torch.stack((real, imag), dim=-1)
+        return output
+
+class ComplexLayerNorm(nn.Module):
+
+    def __init__(self,
+                 feature_shape
+                ):
+        super().__init__()
+        self.ln_re = nn.LayerNorm(
+            feature_shape
+           )
+        self.ln_im = nn.LayerNorm(
+           feature_shape
+            )
+
+    def forward(self, x):
+        real = self.ln_re(x[..., 0])
+        imag = self.ln_im(x[..., 1])
+        output = torch.stack((real, imag), dim=-1)
         return output
 
 
