@@ -11,9 +11,9 @@ from modelscope.models.base import Tensor
 from modelscope.models.builder import MODELS
 from modelscope.utils.constant import ModelFile, Tasks
 from .conv_stft import ConviSTFT, ConvSTFT
-from .unet import UNet
 from . import complex_nn
 from s4.s4_model_complex import ComplexS4Model
+from frcrn.unet_s4 import UNet
 
 class Encoder(nn.Module):
 
@@ -137,23 +137,19 @@ class FRCRN(nn.Module):
             feature_type='complex',
             fix=fix)
         
-        self.s4_model1 = ComplexS4Model(
-                        d_input=321,
-                        d_output=321,
-                        d_model=256,
-                        n_layers=4,
-                        dropout=0.2,
-                        prenorm=False,
-                        args=args) # Build Neural Network
+        self.unet1 = UNet(
+                        1,
+            complex=complex,
+            model_complexity=model_complexity,
+            model_depth=model_depth,
+            padding_mode=padding_mode, args=args) # Build Neural Network
 
-        self.s4_model2 = ComplexS4Model(
-                        d_input=321,
-                        d_output=321,
-                        d_model=256,
-                        n_layers=4,
-                        dropout=0.2,
-                        prenorm=False,
-                        args=args) # Build Neural Network
+        self.unet2 = UNet(
+                       1,
+            complex=complex,
+            model_complexity=model_complexity,
+            model_depth=model_depth,
+            padding_mode=padding_mode, args=args) # Build Neural Network
 
        
 
@@ -171,15 +167,14 @@ class FRCRN(nn.Module):
         ], 1)
 
         # [B, 2, D, T]
-        # cmp_spec = torch.unsqueeze(cmp_spec, 4)
+        cmp_spec = torch.unsqueeze(cmp_spec, 4)
         # [B, 1, D, T, 2]
-        #[B, 2, D, T] -> [B, T, D, 2]
-        cmp_spec = torch.transpose(cmp_spec, 1, 3)
-        s4_out1 = self.s4_model1(cmp_spec)
-        cmp_mask1 = torch.tanh(s4_out1).unsqueeze(1).transpose(2, 3)
-        s4_out2 = self.s4_model2(s4_out1)
-        cmp_mask2 = torch.tanh(s4_out2).unsqueeze(1).transpose(2, 3)
-        cmp_spec = cmp_spec.unsqueeze(1).transpose(2, 3)
+        cmp_spec = torch.transpose(cmp_spec, 1, 4)
+        unet1_out = self.unet1(cmp_spec)
+        # print(unet1_out.shape)
+        cmp_mask1 = torch.tanh(unet1_out)
+        unet2_out = self.unet2(unet1_out)
+        cmp_mask2 = torch.tanh(unet2_out)
         est_spec, est_wav, est_mask = self.apply_mask(cmp_spec, cmp_mask1)
         out_list.append(est_spec)
         out_list.append(est_wav)
@@ -189,6 +184,7 @@ class FRCRN(nn.Module):
         out_list.append(est_spec)
         out_list.append(est_wav)
         out_list.append(est_mask)
+
         return out_list
 
     def apply_mask(self, cmp_spec, cmp_mask):

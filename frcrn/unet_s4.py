@@ -11,6 +11,7 @@ import torch.nn as nn
 from . import complex_nn
 from .se_module_complex import SELayer
 import time
+from s4.s4_model_complex import ComplexS4ModelLayer, ComplexS4ModelLayer_L1
 
 
 class Encoder(nn.Module):
@@ -91,7 +92,7 @@ class UNet(nn.Module):
                  complex=False,
                  model_complexity=45,
                  model_depth=20,
-                 padding_mode='zeros'):
+                 padding_mode='zeros', args=None):
         super().__init__()
 
         if complex:
@@ -103,11 +104,11 @@ class UNet(nn.Module):
             model_depth=model_depth)
         self.encoders = []
         self.model_length = model_depth // 2
-        self.fsmn = complex_nn.ComplexUniDeepFsmn(128, 128, 128)
+        self.fsmn = ComplexS4ModelLayer(128, 128, 128, args=args)
         self.se_layers_enc = []
         self.fsmn_enc = []
         for i in range(self.model_length):
-            fsmn_enc = complex_nn.ComplexUniDeepFsmn_L1(128, 128, 128)
+            fsmn_enc = ComplexS4ModelLayer_L1(self.enc_channels[i], self.enc_channels[i], 128, n_layers=1, args=args)
             self.add_module('fsmn_enc{}'.format(i), fsmn_enc)
             self.fsmn_enc.append(fsmn_enc)
             module = Encoder(
@@ -127,7 +128,7 @@ class UNet(nn.Module):
         self.fsmn_dec = []
         self.se_layers_dec = []
         for i in range(self.model_length):
-            fsmn_dec = complex_nn.ComplexUniDeepFsmn_L1(128, 128, 128)
+            fsmn_dec = ComplexS4ModelLayer_L1(self.dec_channels[i+1], self.dec_channels[i+1], 128, n_layers=1, args=args)
             self.add_module('fsmn_dec{}'.format(i), fsmn_dec)
             self.fsmn_dec.append(fsmn_dec)
             module = Decoder(
@@ -182,6 +183,7 @@ class UNet(nn.Module):
         p = x
         for i, decoder in enumerate(self.decoders):
             p = decoder(p)
+            # print(p.shape)
             # print('dec', time.time()-t_s)
             if i < self.model_length - 1:
                 p = self.fsmn_dec[i](p)
@@ -190,6 +192,7 @@ class UNet(nn.Module):
                 break
             if i < self.model_length - 2:
                 p = self.se_layers_dec[i](p)
+            # print(p.shape, xs_se[self.model_length - 1 - i].shape)
             p = torch.cat([p, xs_se[self.model_length - 1 - i]], dim=1)
 
         # cmp_spec: [12, 1, 513, 64, 2]
@@ -201,7 +204,8 @@ class UNet(nn.Module):
 
         if model_depth == 14:
             self.enc_channels = [
-                input_channels, 128, 128, 128, 128, 128, 128, 128
+                input_channels, 8, 8, 8, 16, 32, 64, 128
+                # input_channels, 128, 128, 128, 128, 128, 128, 128
             ]
             self.enc_kernel_sizes = [(5, 2), (5, 2), (5, 2), (5, 2), (5, 2),
                                      (5, 2), (2, 2)]
@@ -209,13 +213,25 @@ class UNet(nn.Module):
                                 (2, 1)]
             self.enc_paddings = [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1),
                                  (0, 1), (0, 1)]
-            self.dec_channels = [64, 128, 128, 128, 128, 128, 128, 1]
+            self.dec_channels = [64, 64, 32, 16, 8, 8, 8, 1]
+            # self.dec_channels = [64, 128, 128, 128, 128, 128, 128, 1]
             self.dec_kernel_sizes = [(2, 2), (5, 2), (5, 2), (5, 2), (6, 2),
                                      (5, 2), (5, 2)]
             self.dec_strides = [(2, 1), (2, 1), (2, 1), (2, 1), (2, 1), (2, 1),
                                 (2, 1)]
             self.dec_paddings = [(0, 1), (0, 1), (0, 1), (0, 1), (0, 1),
                                  (0, 1), (0, 1)]
+        elif model_depth == 6:
+            self.enc_channels = [
+                input_channels, 128, 128, 128
+            ]
+            self.enc_kernel_sizes = [(10, 2), (10, 2), (4, 2)]
+            self.enc_strides = [(5, 1), (6, 1), (6, 1)]
+            self.enc_paddings = [(0, 1), (0, 1), (0, 1)]
+            self.dec_channels = [64, 128, 128, 1]
+            self.dec_kernel_sizes = [(8, 2), (10, 2), (10, 2)]
+            self.dec_strides = [(6, 1), (6, 1), (6, 1)]
+            self.dec_paddings = [(0, 1), (0, 1), (0, 1)]
 
         elif model_depth == 10:
             self.enc_channels = [

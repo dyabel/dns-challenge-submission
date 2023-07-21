@@ -92,7 +92,6 @@ class FRCRN(nn.Module):
         cmp_spec = torch.unsqueeze(cmp_spec, 4)
         # [B, 1, D, T, 2]
         cmp_spec = torch.transpose(cmp_spec, 1, 4)
-        # print(cmp_spec.shape)
         unet1_out = self.unet(cmp_spec)
         # print(unet1_out.shape)
         cmp_mask1 = torch.tanh(unet1_out)

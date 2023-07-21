@@ -36,7 +36,6 @@ class ComplexUniDeepFsmn(nn.Module):
         # x: [b,h,T,2], [6, 256, 106, 2]
         x = torch.transpose(x, 1, 2)
         # x: [b,T,h,2], [6, 106, 256, 2]
-
         real_L1 = self.fsmn_re_L1(x[..., 0]) - self.fsmn_im_L1(x[..., 1])
         imaginary_L1 = self.fsmn_re_L1(x[..., 1]) + self.fsmn_im_L1(x[..., 0])
         # GRU output: [99, 6, 128]
@@ -89,11 +88,14 @@ class ComplexLinear(nn.Module):
         super().__init__()
 
         # Model components
-        self.linear_re = nn.Linear(in_channel, out_channel
+        self.linear_re = nn.Linear(
+            in_channel, 
+            out_channel
             )
         self.linear_im = nn.Linear(
             in_channel,
-            out_channel)
+            out_channel
+            )
 
     def forward(self, x):
         r"""

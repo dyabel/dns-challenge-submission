@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MIT
 # See: https://spdx.org/licenses/
 import sys
-sys.path.append('/home/dy/IntelNeuromorphicDNSChallenge-main')
 import os
 import h5py
 import argparse
@@ -19,7 +18,7 @@ from audio_dataloader import DNSAudio
 from snr import si_snr
 import importlib
 from project import Project
-from frcrn.model_s4_complex import FRCRN
+from frcrn.model_unet_s4_complex import FRCRN
 
 
 
@@ -78,16 +77,7 @@ class Network(torch.nn.Module):
 
     def forward(self, x):
         # forward_propagation = self.train_func.forward_propagation
-        # x = x.transpose(1, 2)
-        # print(x.shape)
         x = self.net(x)
-        # print(x.shape)
-
-        # for block in self.blocks:
-        #     x = block(x)
-        # x = x.transpose(0, 1)
-        # x = x.transpose(1, 2)
-        # x = x.transpose(1,2)
         return x
 
         # mask = torch.relu(x + 1)
@@ -299,6 +289,7 @@ if __name__ == '__main__':
 
             clean_rec = out_list[4]
             score = si_snr(clean_rec, clean)
+            # loss = net.net.loss(noisy,  clean, out_list, mode='SiSNR')['sisnr']
             loss = net.net.loss(noisy,  clean, out_list)['loss']
             # loss = lam * F.mse_loss(denoised_abs, clean_abs) + (100 - torch.mean(score))
 
@@ -348,6 +339,7 @@ if __name__ == '__main__':
                 clean_rec = out_list[4]
                 score = si_snr(clean_rec, clean)
                 # loss = lam * net.loss + (100 - torch.mean(score))
+                # loss = net.net.loss(noisy,  clean, out_list, mode='SiSNR')['sisnr']
                 loss = net.net.loss(noisy,  clean, out_list)['loss']
                 stats.validation.correct_samples += torch.sum(score).item()
                 stats.validation.loss_sum += loss.item()

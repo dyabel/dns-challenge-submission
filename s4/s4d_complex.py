@@ -111,9 +111,9 @@ class ComplexS4D(nn.Module):
         # Compute D term in state space equation - essentially a skip connection
         y_re = y_re + u_re * self.D_re.unsqueeze(-1)
         y_im = y_im + u_im * self.D_im.unsqueeze(-1)
+        y_re = self.dropout(self.activation(y_re))
+        y_im = self.dropout(self.activation(y_im))
         y = torch.stack((y_re, y_im), dim=-1)
-
-        y = self.dropout(self.activation(y))
         y = self.output_linear(y)
         if not self.transposed: y = y.transpose(-2, -3)
         return y, None # Return a dummy state to satisfy this repo's interface, but this can be modified
