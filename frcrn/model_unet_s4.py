@@ -13,7 +13,7 @@ from modelscope.utils.constant import ModelFile, Tasks
 from .conv_stft import ConviSTFT, ConvSTFT
 from . import complex_nn
 from s4.s4_model_complex import ComplexS4Model
-from frcrn.unet_s4_complex import UNet
+from frcrn.unet_s4 import UNet
 
 class Encoder(nn.Module):
 
@@ -121,7 +121,7 @@ class FRCRN(nn.Module):
         self.fft_len = fft_len
         self.win_type = win_type
 
-        fix = False
+        fix = True
         self.stft = ConvSTFT(
             self.win_len,
             self.win_inc,
@@ -144,48 +144,22 @@ class FRCRN(nn.Module):
             model_depth=model_depth,
             padding_mode=padding_mode, args=args) # Build Neural Network
 
-        self.unet2 = UNet(
-                       1,
-            complex=complex,
-            model_complexity=model_complexity,
-            model_depth=model_depth,
-            padding_mode=padding_mode, args=args) # Build Neural Network
+        # self.unet2 = UNet(
+        #                1,
+        #     complex=complex,
+        #     model_complexity=model_complexity,
+        #     model_depth=model_depth,
+        #     padding_mode=padding_mode, args=args) # Build Neural Network
 
        
 
     def forward(self, inputs):
-        out_list = []
-        # [B, D*2, T]
-        cmp_spec = self.stft(inputs)
-        # [B, 1, D*2, T]
-        cmp_spec = torch.unsqueeze(cmp_spec, 1)
-
-        # to [B, 2, D, T] real_part/imag_part
-        cmp_spec = torch.cat([
-            cmp_spec[:, :, :self.feat_dim, :],
-            cmp_spec[:, :, self.feat_dim:, :],
-        ], 1)
-
-        # [B, 2, D, T]
-        cmp_spec = torch.unsqueeze(cmp_spec, 4)
-        # [B, 1, D, T, 2]
-        cmp_spec = torch.transpose(cmp_spec, 1, 4)
+        cmp_spec = torch.unsqueeze(inputs, 3)
+        cmp_spec = torch.transpose(cmp_spec, 1, 3)
         unet1_out = self.unet1(cmp_spec)
-        # print(unet1_out.shape)
-        cmp_mask1 = torch.tanh(unet1_out)
-        unet2_out = self.unet2(unet1_out)
-        cmp_mask2 = torch.tanh(unet2_out)
-        est_spec, est_wav, est_mask = self.apply_mask(cmp_spec, cmp_mask1)
-        out_list.append(est_spec)
-        out_list.append(est_wav)
-        out_list.append(est_mask)
-        cmp_mask2 = cmp_mask2 + cmp_mask1
-        est_spec, est_wav, est_mask = self.apply_mask(cmp_spec, cmp_mask2)
-        out_list.append(est_spec)
-        out_list.append(est_wav)
-        out_list.append(est_mask)
+       
 
-        return out_list
+        return unet1_out
 
     def apply_mask(self, cmp_spec, cmp_mask):
         est_spec = torch.cat([

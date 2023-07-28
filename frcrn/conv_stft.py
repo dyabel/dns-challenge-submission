@@ -50,13 +50,15 @@ class ConvSTFT(nn.Module):
         self.win_len = win_len
         self.dim = self.fft_len
 
-    def forward(self, inputs):
+    def forward(self, inputs, feature_type=None):
         if inputs.dim() == 2:
             inputs = torch.unsqueeze(inputs, 1)
 
         outputs = F.conv1d(inputs, self.weight, stride=self.stride)
+        if feature_type is None:
+            feature_type = self.feature_type 
 
-        if self.feature_type == 'complex':
+        if feature_type == 'complex':
             return outputs
         else:
             dim = self.dim // 2 + 1

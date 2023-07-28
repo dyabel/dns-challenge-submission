@@ -19,7 +19,7 @@ from audio_dataloader import DNSAudio
 from snr import si_snr
 import importlib
 from project import Project
-from frcrn.model import FRCRN
+from frcrn.model_s4_complex import FRCRN
 
 
 
@@ -71,7 +71,7 @@ class Network(torch.nn.Module):
 
         self.input_quantizer = lambda x: slayer.utils.quantize(x, step=1 / 64)
 
-        self.net =  FRCRN(True, 45, 14, False, 'zeros')
+        self.net =  FRCRN(True, 45, 14, False, 'zeros', args=args)
 
         # self.blocks[1].delay.max_delay = max_delay
         # self.blocks[2].delay.max_delay = max_delay
@@ -280,7 +280,7 @@ if __name__ == '__main__':
 
     stats = slayer.utils.LearningStats(accuracy_str='SI-SNR',
                                        accuracy_unit='dB')
-    # ckpt = torch.load(trained_folder + '/network.pt')
+
     for epoch in range(args.epoch):
         t_st = datetime.now()
         for i, (noisy, clean, noise) in enumerate(train_loader):
@@ -288,9 +288,16 @@ if __name__ == '__main__':
             noisy = noisy.to(device)
             clean = clean.to(device)
 
+            # noisy_abs, noisy_arg = stft_splitter(noisy, args.n_fft)
+            # clean_abs, clean_arg = stft_splitter(clean, args.n_fft)
             out_list = net(noisy)
+            # noisy_arg = slayer.axon.delay(noisy_arg, out_delay)
+            # clean_abs = slayer.axon.delay(clean_abs, out_delay)
+            # clean = slayer.axon.delay(clean, args.n_fft // 4 * out_delay)
 
-            clean_rec = out_list[4]
+            # clean_rec = stft_mixer(denoised_abs, noisy_arg, args.n_fft)
+
+            clean_rec = out_list[1]
             score = si_snr(clean_rec, clean)
             loss = net.net.loss(noisy,  clean, out_list)['loss']
             # loss = lam * F.mse_loss(denoised_abs, clean_abs) + (100 - torch.mean(score))
@@ -338,7 +345,7 @@ if __name__ == '__main__':
                 # clean = slayer.axon.delay(clean, args.n_fft // 4 * out_delay)
 
                 # clean_rec = stft_mixer(denoised_abs, noisy_arg, args.n_fft)
-                clean_rec = out_list[4]
+                clean_rec = out_list[1]
                 score = si_snr(clean_rec, clean)
                 # loss = lam * net.loss + (100 - torch.mean(score))
                 loss = net.net.loss(noisy,  clean, out_list)['loss']

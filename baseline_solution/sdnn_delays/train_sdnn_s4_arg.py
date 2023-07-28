@@ -19,8 +19,7 @@ from audio_dataloader import DNSAudio
 from snr import si_snr
 import importlib
 from project import Project
-from frcrn.model import FRCRN
-
+from s4.s4_model import S4Model
 
 
 def collate_fn(batch):
@@ -71,28 +70,39 @@ class Network(torch.nn.Module):
 
         self.input_quantizer = lambda x: slayer.utils.quantize(x, step=1 / 64)
 
-        self.net =  FRCRN(True, 45, 14, False, 'zeros')
+        self.net =  S4Model(d_input=257,
+                        d_output=257,
+                        d_model=256,
+                        n_layers=4,
+                        dropout=0.2,
+                        prenorm=False,
+                        args=args) # Build Neural Network
 
+        self.net_arg =  S4Model(d_input=257,
+                        d_output=257,
+                        d_model=256,
+                        n_layers=4,
+                        dropout=0.2,
+                        prenorm=False,
+                        args=args) # Build Neural Network
         # self.blocks[1].delay.max_delay = max_delay
         # self.blocks[2].delay.max_delay = max_delay
 
-    def forward(self, x):
-        # forward_propagation = self.train_func.forward_propagation
-        # x = x.transpose(1, 2)
-        # print(x.shape)
+    def forward(self, noisy, noisy_arg):
+        x = noisy - self.stft_mean
+        x = x.transpose(1, 2)
         x = self.net(x)
-        # print(x.shape)
+        x = x.transpose(1,2)
+        mask = torch.relu(x + 1)
 
-        # for block in self.blocks:
-        #     x = block(x)
-        # x = x.transpose(0, 1)
-        # x = x.transpose(1, 2)
-        # x = x.transpose(1,2)
-        return x
-
-        # mask = torch.relu(x + 1)
+        x_arg = noisy_arg - self.stft_mean
+        x_arg = x_arg.transpose(1, 2)
+        x_arg = self.net(x_arg)
+        x_arg = x_arg.transpose(1,2)
+        delta_arg = torch.tanh(x_arg)
+        print(delta_arg)
         # print(noisy.shape, mask.shape)
-        # return slayer.axon.delay(noisy, self.out_delay) * mask
+        return slayer.axon.delay(noisy, self.out_delay) * mask, slayer.axon.delay(noisy_arg, self.out_delay) + delta_arg
 
     def grad_flow(self, path):
         # helps monitor the gradient flow
@@ -280,7 +290,7 @@ if __name__ == '__main__':
 
     stats = slayer.utils.LearningStats(accuracy_str='SI-SNR',
                                        accuracy_unit='dB')
-    # ckpt = torch.load(trained_folder + '/network.pt')
+
     for epoch in range(args.epoch):
         t_st = datetime.now()
         for i, (noisy, clean, noise) in enumerate(train_loader):
@@ -288,12 +298,17 @@ if __name__ == '__main__':
             noisy = noisy.to(device)
             clean = clean.to(device)
 
-            out_list = net(noisy)
+            noisy_abs, noisy_arg = stft_splitter(noisy, args.n_fft)
+            clean_abs, clean_arg = stft_splitter(clean, args.n_fft)
+            denoised_abs, denoised_arg = net(noisy_abs, noisy_arg)
+            denoised_arg = slayer.axon.delay(denoised_arg, out_delay)
+            clean_abs = slayer.axon.delay(clean_abs, out_delay)
+            clean = slayer.axon.delay(clean, args.n_fft // 4 * out_delay)
 
-            clean_rec = out_list[4]
+            clean_rec = stft_mixer(denoised_abs, denoised_arg, args.n_fft)
+
             score = si_snr(clean_rec, clean)
-            loss = net.net.loss(noisy,  clean, out_list)['loss']
-            # loss = lam * F.mse_loss(denoised_abs, clean_abs) + (100 - torch.mean(score))
+            loss = lam * (F.mse_loss(denoised_abs, clean_abs) + F.mse_loss(denoised_arg, clean_arg)) + (100 - torch.mean(score)) 
 
             assert torch.isnan(loss) == False
 
@@ -329,19 +344,18 @@ if __name__ == '__main__':
                 noisy = noisy.to(device)
                 clean = clean.to(device)
                 
-                # noisy_abs, noisy_arg = stft_splitter(noisy, args.n_fft)
-                # clean_abs, clean_arg = stft_splitter(clean, args.n_fft)
+                noisy_abs, noisy_arg = stft_splitter(noisy, args.n_fft)
+                clean_abs, clean_arg = stft_splitter(clean, args.n_fft)
 
-                out_list = net(noisy)
-                # noisy_arg = slayer.axon.delay(noisy_arg, out_delay)
-                # clean_abs = slayer.axon.delay(clean_abs, out_delay)
-                # clean = slayer.axon.delay(clean, args.n_fft // 4 * out_delay)
+                denoised_abs, denoised_arg = net(noisy_abs, noisy_arg)
+                denoised_arg = slayer.axon.delay(denoised_arg, out_delay)
+                clean_abs = slayer.axon.delay(clean_abs, out_delay)
+                clean = slayer.axon.delay(clean, args.n_fft // 4 * out_delay)
 
-                # clean_rec = stft_mixer(denoised_abs, noisy_arg, args.n_fft)
-                clean_rec = out_list[4]
+                clean_rec = stft_mixer(denoised_abs, denoised_arg, args.n_fft)
+                
                 score = si_snr(clean_rec, clean)
-                # loss = lam * net.loss + (100 - torch.mean(score))
-                loss = net.net.loss(noisy,  clean, out_list)['loss']
+                loss = lam * (F.mse_loss(denoised_abs, clean_abs) + F.mse_loss(denoised_arg, clean_arg))+ (100 - torch.mean(score))
                 stats.validation.correct_samples += torch.sum(score).item()
                 stats.validation.loss_sum += loss.item()
                 stats.validation.num_samples += noisy.shape[0]
