@@ -70,9 +70,16 @@ class Network(torch.nn.Module):
 
         self.input_quantizer = lambda x: slayer.utils.quantize(x, step=1 / 64)
 
-        self.net =  S4Model(d_input=257,
-                        d_output=257,
-                        d_model=256,
+        # self.net =  S4Model(d_input=257,
+        #                 d_output=257,
+        #                 d_model=256,
+        #                 n_layers=4,
+        #                 dropout=0.2,
+        #                 prenorm=False,
+        #                 args=args) # Build Neural Network
+        self.net =  S4Model(d_input=321,
+                        d_output=321,
+                        d_model=512,
                         n_layers=4,
                         dropout=0.2,
                         prenorm=False,

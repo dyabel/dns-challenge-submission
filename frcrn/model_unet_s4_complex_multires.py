@@ -114,6 +114,7 @@ class FRCRN(nn.Module):
             win_type: windowing type used in STFT, eg. 'hanning', 'hamming'
         """
         super().__init__()
+        self.feat_dim1 = 512 // 2 + 1
         self.feat_dim = fft_len // 2 + 1
 
         self.win_len = win_len
@@ -122,6 +123,21 @@ class FRCRN(nn.Module):
         self.win_type = win_type
 
         fix = True
+        self.stft1 = ConvSTFT(
+            512,
+            self.win_inc,
+            512,
+            self.win_type,
+            feature_type='complex',
+            fix=fix)
+        self.istft1 = ConviSTFT(
+            512,
+            self.win_inc,
+            512,
+            self.win_type,
+            feature_type='complex',
+            fix=fix)
+        
         self.stft = ConvSTFT(
             self.win_len,
             self.win_inc,
@@ -150,40 +166,54 @@ class FRCRN(nn.Module):
             model_complexity=model_complexity,
             model_depth=model_depth,
             padding_mode=padding_mode, args=args) # Build Neural Network
+        
+        self.f_linear = complex_nn.ComplexLinear(self.feat_dim1, self.feat_dim)
 
        
 
     def forward(self, inputs):
         out_list = []
         # [B, D*2, T]
-        cmp_spec = self.stft(inputs)
+        cmp_spec1 = self.stft1(inputs)
+        cmp_spec2 = self.stft(inputs)
         # [B, 1, D*2, T]
-        cmp_spec = torch.unsqueeze(cmp_spec, 1)
+        out_length = cmp_spec2.shape[-1]
+        cmp_spec1 = torch.unsqueeze(cmp_spec1, 1)
+        cmp_spec2 = torch.unsqueeze(cmp_spec2, 1)
 
         # to [B, 2, D, T] real_part/imag_part
-        cmp_spec = torch.cat([
-            cmp_spec[:, :, :self.feat_dim, :],
-            cmp_spec[:, :, self.feat_dim:, :],
+        cmp_spec1 = torch.cat([
+            cmp_spec1[:, :, :self.feat_dim1, :],
+            cmp_spec1[:, :, self.feat_dim1:, :],
         ], 1)
 
+        cmp_spec2 = torch.cat([
+            cmp_spec2[:, :, :self.feat_dim, :],
+            cmp_spec2[:, :, self.feat_dim:, :],
+        ], 1)
         # [B, 2, D, T]
-        cmp_spec = torch.unsqueeze(cmp_spec, 4)
+        cmp_spec1 = torch.unsqueeze(cmp_spec1, 4)
+        cmp_spec2 = torch.unsqueeze(cmp_spec2, 4)
         # [B, 1, D, T, 2]
-        cmp_spec = torch.transpose(cmp_spec, 1, 4)
+        cmp_spec1 = torch.transpose(cmp_spec1, 1, 4)
+        cmp_spec1 = self.f_linear(cmp_spec1.transpose(2, 3)).transpose(2, 3)
+        cmp_spec2 = torch.transpose(cmp_spec2, 1, 4)
+        cmp_spec = torch.cat((cmp_spec1, cmp_spec2), dim=-2)
+
         unet1_out = self.unet1(cmp_spec)
-        # print(unet1_out.shape)
-        cmp_mask1 = torch.tanh(unet1_out)
+
+        cmp_mask1 = torch.tanh(unet1_out[..., -out_length:,:])
         unet2_out = self.unet2(unet1_out)
-        cmp_mask2 = torch.tanh(unet2_out)
-        est_spec, est_wav, est_mask = self.apply_mask(cmp_spec, cmp_mask1)
+        cmp_mask2 = torch.tanh(unet2_out[..., -out_length:, :])
+        est_spec, est_wav, est_mask = self.apply_mask(cmp_spec2, cmp_mask1)
         out_list.append(est_spec)
         out_list.append(est_wav)
         out_list.append(est_mask)
-        cmp_mask2 = cmp_mask2 + cmp_mask1
-        est_spec, est_wav, est_mask = self.apply_mask(cmp_spec, cmp_mask2)
-        out_list.append(est_spec)
-        out_list.append(est_wav)
-        out_list.append(est_mask)
+        # cmp_mask2 = cmp_mask2 + cmp_mask1
+        # est_spec, est_wav, est_mask = self.apply_mask(cmp_spec2, cmp_mask2)
+        # out_list.append(est_spec)
+        # out_list.append(est_wav)
+        # out_list.append(est_mask)
 
         return out_list
 
@@ -243,7 +273,7 @@ class FRCRN(nn.Module):
                 count = count + 1
                 est_mask = out_list[count]
                 count = count + 1
-                if count != 3:
+                if count != -1:
                     amp_loss, phase_loss, SiSNR_loss = self.loss_1layer(
                         noisy, est_spec, est_wav, labels, est_mask, mode)
                     loss = amp_loss + phase_loss + SiSNR_loss

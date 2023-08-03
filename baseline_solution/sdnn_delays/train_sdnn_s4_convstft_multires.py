@@ -21,6 +21,7 @@ import importlib
 from project import Project
 from s4.s4_model import S4Model
 from frcrn.conv_stft import ConviSTFT, ConvSTFT
+import torch.nn as nn
 
 
 def collate_fn(batch):
@@ -101,6 +102,7 @@ class Network(torch.nn.Module):
                         dropout=0.2,
                         prenorm=False,
                         args=args) # Build Neural Network
+        self.f_linear = nn.Linear(321, self.feat_dim)
 
         # self.blocks[1].delay.max_delay = max_delay
         # self.blocks[2].delay.max_delay = max_delay
@@ -119,15 +121,18 @@ class Network(torch.nn.Module):
 
     def forward(self, noisy):
         noisy_abs, noisy_arg = self.torch_stft(noisy, self.fft_len)
+        noisy_abs1, noisy_arg1 = self.torch_stft(noisy, 640)
+        out_length = noisy_abs.shape[-1]
         # noisy_abs, noisy_arg = self.stft(noisy)
         # forward_propagation = self.train_func.forward_propagation
-        x = noisy_abs
+        noisy_abs1 = self.f_linear(noisy_abs1.transpose(1,2)).transpose(1,2)
+        x = torch.cat((F.relu(noisy_abs1), noisy_abs), dim=-1)
         
         x = x.transpose(1, 2)
         x = self.net(x)
         x = x.transpose(1,2)
 
-        mask = torch.relu(x + 1)
+        mask = torch.relu(x[..., -out_length:] + 1)
         denoised_abs =  slayer.axon.delay(noisy_abs, self.out_delay) * mask
         noisy_arg = slayer.axon.delay(noisy_arg, self.out_delay)
         # denoised_abs =  noisy_abs * mask

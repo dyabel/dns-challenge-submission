@@ -65,7 +65,7 @@ class ComplexS4Model(nn.Module):
 
         # Linear encoder (d_input = 1 for grayscale and 3 for RGB)
         self.encoder = complex_nn.ComplexLinear(d_input, d_model)
-        self.se_layer_enc = SELayer(d_model, 8)
+        # self.se_layer_enc = SELayer(d_model, 8)
 
         # Stack S4 layers as residual blocks
         self.s4_layers = nn.ModuleList()
@@ -249,7 +249,7 @@ class ComplexS4ModelLayer_L1(nn.Module):
             self.se_layers.append(nn.Identity())
 
         # Linear decoder
-        self.se_layer_dec = SELayer(d_model, 8)
+        # self.se_layer_dec = SELayer(d_model, 8)
         self.decoder = complex_nn.ComplexLinear(d_model, d_output)
 
     def forward(self, x):

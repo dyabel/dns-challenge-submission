@@ -166,6 +166,7 @@ class UNet(nn.Module):
 
     def forward(self, inputs):
         x = inputs
+        # print(x.shape)
         # go down
         xs = []
         xs_se = []
@@ -194,11 +195,12 @@ class UNet(nn.Module):
                 break
             if i < self.model_length - 2:
                 p = self.se_layers_dec[i](p)
-            # print(p.shape, xs_se[self.model_length - 1 - i].shape)
+            # print(i, p.shape, xs_se[self.model_length - 1 - i].shape)
             p = torch.cat([p, xs_se[self.model_length - 1 - i]], dim=1)
 
         # cmp_spec: [12, 1, 513, 64, 2]
         cmp_spec = self.linear(p)
+        # print(p.shape)
         # print('all time', time.time()-t_s)
         return cmp_spec
 
@@ -228,10 +230,10 @@ class UNet(nn.Module):
                 input_channels, 128, 128, 128
             ]
             self.enc_kernel_sizes = [(10, 2), (10, 2), (4, 2)]
-            self.enc_strides = [(5, 1), (6, 1), (6, 1)]
+            self.enc_strides = [(6, 1), (6, 1), (6, 1)]
             self.enc_paddings = [(0, 1), (0, 1), (0, 1)]
             self.dec_channels = [64, 128, 128, 1]
-            self.dec_kernel_sizes = [(8, 2), (10, 2), (10, 2)]
+            self.dec_kernel_sizes = [(8, 2), (10, 2), (15, 2)]
             self.dec_strides = [(6, 1), (6, 1), (6, 1)]
             self.dec_paddings = [(0, 1), (0, 1), (0, 1)]
 

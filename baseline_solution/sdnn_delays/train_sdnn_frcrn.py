@@ -280,8 +280,11 @@ if __name__ == '__main__':
 
     stats = slayer.utils.LearningStats(accuracy_str='SI-SNR',
                                        accuracy_unit='dB')
-    # ckpt = torch.load(trained_folder + '/network.pt')
-    for epoch in range(args.epoch):
+    ckpt = torch.load(trained_folder + '/ckpt_epoch13.pt')
+    net.load_state_dict(ckpt['model'])
+    optimizer.load_state_dict(ckpt['optimizer'])
+    start_epoch = ckpt['epoch']
+    for epoch in range(start_epoch+1, args.epoch):
         t_st = datetime.now()
         for i, (noisy, clean, noise) in enumerate(train_loader):
             net.train()

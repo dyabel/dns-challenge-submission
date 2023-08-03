@@ -95,7 +95,66 @@ class S4Model(nn.Module):
 
         return x
 
+class S4Layer(nn.Module):
 
+    def __init__(
+        self,
+        d_input,
+        d_output=10,
+        d_model=256,
+        n_layers=4,
+        # n_layers=4,
+        dropout=0.2,
+        prenorm=False,
+        args=None
+    ):
+        super().__init__()
+
+        self.prenorm = prenorm
+
+        # Stack S4 layers as residual blocks
+        self.s4_layers = nn.ModuleList()
+        self.norms = nn.ModuleList()
+        self.dropouts = nn.ModuleList()
+        for _ in range(n_layers):
+            self.s4_layers.append(
+                S4D(d_model, dropout=dropout, transposed=True, lr=min(0.001, args.lr))
+            )
+            self.norms.append(nn.LayerNorm(d_model))
+            self.dropouts.append(dropout_fn(dropout))
+
+    def forward(self, x):
+        """
+        Input x is shape (B, L, d_input)
+        """
+
+        x = x.transpose(-1, -2)  # (B, L, d_model) -> (B, d_model, L)
+        for layer, norm, dropout in zip(self.s4_layers, self.norms, self.dropouts):
+            # Each iteration of this loop will map (B, d_model, L) -> (B, d_model, L)
+
+            z = x
+            if self.prenorm:
+                # Prenorm
+                z = norm(z.transpose(-1, -2)).transpose(-1, -2)
+
+            # Apply S4 block: we ignore the state input and output
+            z, _ = layer(z)
+
+            # Dropout on the output of the S4 block
+            z = dropout(z)
+
+            # Residual connection
+            x = z + x
+
+            if not self.prenorm:
+                # Postnorm
+                x = norm(x.transpose(-1, -2)).transpose(-1, -2)
+
+        x = x.transpose(-1, -2)
+
+
+
+        return x
 # Model
 # print('==> Building model..')
 # d_input = 257
