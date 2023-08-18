@@ -6,7 +6,7 @@ if __name__ == '__main__':
         {
             'team': 'jiaxingdns',
             'model': 'spikingdns',
-            'date': '2023-02-20',
+            'date': '2023-08-18',
             'SI-SNR': 14.11,
             'SI-SNRi_data': 14.11 - 7.62,
             'SI-SNRi_enc+dec': 14.11 - 7.62,

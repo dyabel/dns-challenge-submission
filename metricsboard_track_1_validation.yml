@@ -5,7 +5,7 @@
   SI-SNR: 14.11
   SI-SNRi_data: 6.489999999999999
   SI-SNRi_enc+dec: 6.489999999999999
-  date: '2023-02-20'
+  date: '2023-08-18'
   latency_enc+dec_ms: 0.008
   latency_total_ms: 8.009
   model: spikingdns
