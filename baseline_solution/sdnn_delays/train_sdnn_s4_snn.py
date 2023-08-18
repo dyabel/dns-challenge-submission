@@ -98,7 +98,7 @@ class Network(torch.nn.Module):
         x = noisy - self.stft_mean
         # forward_propagation = self.train_func.forward_propagation
         x = x.transpose(1, 2)
-        x = torch.log(x**2)
+        # x = torch.log(x**2)
 
         x = self.net(x)
         x = self.decoder(x)
@@ -109,9 +109,9 @@ class Network(torch.nn.Module):
         # x = x.transpose(0, 1)
         # x = x.transpose(1, 2)
         x = x.transpose(1,2)
-        mask = torch.sqrt(torch.exp(x))
+        # mask = torch.sqrt(torch.exp(x))
 
-        # mask = torch.relu(x + 1)
+        mask = torch.relu(x + 1)
         # print(noisy.shape, mask.shape)
         return slayer.axon.delay(noisy, self.out_delay) * mask
     def grad_flow(self, path):

@@ -40,6 +40,13 @@ if exp == 'lif':
     b = 128
     
     
+import numpy as np
+from lava.lib.dl import netx
+# net = netx.utils.NetDict(trained_folder + '/network.net')
+# weights = [net['layer'][l]['weight'] for l in range(1, 4)]
+# delays = [net['layer'][l]['delay'] for l in range(1, 3)]
+# model_bits = sum([np.ceil(np.log2(np.abs(w).max())) * np.prod(w.shape) for w in weights]) + sum([np.ceil(np.log2(np.abs(d)).max()) * np.prod(d.shape) for d in delays])
+# print('Model Size (KB):', model_bits / 8 / 1024)
 # trained_folder = 'checkpoints/Traineds4_b256'
 args = yaml.safe_load(open(trained_folder + '/args.txt', 'rt'))
 if 'out_delay' not in args.keys():
@@ -94,6 +101,7 @@ dnsmos_noise = np.zeros(3)
 dnsmos_cleaned  = np.zeros(3)
 pesqs = 0
 stois = 0
+scores = 0
 valid_event_counts = []
 
 t_st = datetime.now()
@@ -115,6 +123,7 @@ for i, (noisy, clean, noise) in enumerate(validation_loader):
         loss = F.mse_loss(denoised_abs, clean_abs)
         clean_rec = stft_mixer(denoised_abs, noisy_arg, n_fft)
         score = si_snr(clean_rec, clean)
+        scores += np.sum(score.cpu().data.numpy())
         functional.reset_net(net)
         # if i % 100 == 0:
         # pesqs += np.sum([pesq(clean1, clean_rec1, fs) for clean1, clean_rec1 in zip(clean.detach().cpu().numpy(), clean_rec.detach().cpu().numpy())])
@@ -148,6 +157,7 @@ dnsmos_clean /= len(validation_loader.dataset)
 dnsmos_noisy /= len(validation_loader.dataset)
 dnsmos_noise /= len(validation_loader.dataset)
 dnsmos_cleaned /= len(validation_loader.dataset)
+scores/= len(validation_loader.dataset)
 # pesqs /= len(validation_loader.dataset)
 # stois /= len(validation_loader.dataset)
 
@@ -159,6 +169,7 @@ print('Avg DNSMOS noise   [ovrl, sig, bak]: ', dnsmos_noise)
 print('Avg DNSMOS cleaned [ovrl, sig, bak]: ', dnsmos_cleaned)
 print('Avg pesq:', pesqs)
 print('Avg stoi:', stois)
+print('Avg sisnr:', scores)
 
 # mean_events = np.mean(valid_event_counts, axis=0)
 

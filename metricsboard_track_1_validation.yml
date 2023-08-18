@@ -1,0 +1,16 @@
+- MOS_bak: 3.65
+  MOS_ovrl: 2.77
+  MOS_sig: 3.16
+  PDP_proxy_Ops: null
+  SI-SNR: 14.11
+  SI-SNRi_data: 6.489999999999999
+  SI-SNRi_enc+dec: 6.489999999999999
+  date: '2023-02-20'
+  latency_enc+dec_ms: 0.008
+  latency_total_ms: 8.009
+  model: spikingdns
+  model_path: checkpoints/Traineds4_snn_plif_final/ckpt_epoch49.pt
+  params: 793000
+  power_proxy_Ops/s: null
+  size_kilobytes: null
+  team: jiaxingdns
