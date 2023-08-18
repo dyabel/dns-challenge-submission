@@ -8,6 +8,7 @@ from einops import rearrange, repeat
 
 from s4.dropout import DropoutNd
 from frcrn import complex_nn
+from spikingjelly.clock_driven import neuron, encoding, functional,layer, surrogate
 
 class S4DKernel(nn.Module):
     """Generate convolution kernel from diagonal SSM parameters."""
@@ -78,6 +79,8 @@ class ComplexS4D(nn.Module):
 
         # Pointwise
         self.activation = nn.GELU()
+        # self.activation = complex_nn.ComplexLIF()
+
         # dropout_fn = nn.Dropout2d # NOTE: bugged in PyTorch 1.11
         dropout_fn = DropoutNd
         self.dropout = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
@@ -113,6 +116,69 @@ class ComplexS4D(nn.Module):
         y_im = y_im + u_im * self.D_im.unsqueeze(-1)
         y_re = self.dropout(self.activation(y_re))
         y_im = self.dropout(self.activation(y_im))
+        y = torch.stack((y_re, y_im), dim=-1)
+        y = self.output_linear(y)
+        if not self.transposed: y = y.transpose(-2, -3)
+        return y, None # Return a dummy state to satisfy this repo's interface, but this can be modified
+
+class ComplexS4D_LIF(nn.Module):
+    def __init__(self, d_model, d_state=64, dropout=0.0, transposed=True, **kernel_args):
+        super().__init__()
+
+        self.h = d_model
+        self.n = d_state
+        self.d_output = self.h
+        self.transposed = transposed
+
+        self.D_re = nn.Parameter(torch.randn(self.h))
+        self.D_im = nn.Parameter(torch.randn(self.h))
+
+        # SSM Kernel
+        self.kernel_re = S4DKernel(self.h, N=self.n, **kernel_args)
+        self.kernel_im = S4DKernel(self.h, N=self.n, **kernel_args)
+
+        # Pointwise
+        # self.activation = nn.GELU()
+        self.activation_re =  neuron.MultiStepLIFNode(tau=2., surrogate_function=surrogate.ATan(alpha=2.0), backend='cupy')
+        self.activation_im =  neuron.MultiStepLIFNode(tau=2., surrogate_function=surrogate.ATan(alpha=2.0), backend='cupy')
+
+        # dropout_fn = nn.Dropout2d # NOTE: bugged in PyTorch 1.11
+        dropout_fn = DropoutNd
+        self.dropout = dropout_fn(dropout) if dropout > 0.0 else nn.Identity()
+
+        # position-wise output transform to mix features
+        self.output_linear = nn.Sequential(
+            # complex_nn.ComplexConv1d(self.h, self.h, kernel_size=1),
+            complex_nn.ComplexConv1d(self.h, 2*self.h, kernel_size=1),
+            complex_nn.ComplexGLU(dim=-2),
+            # complex_nn.ComplexLIF()
+        )
+
+    def forward(self, u, **kwargs): # absorbs return_output and transformer src mask
+        """ Input and output shape (B, H, L) """
+        u_re = u[..., 0]
+        u_im = u[..., 1]
+        if not self.transposed: u_re = u_re.transpose(-1, -2)
+        if not self.transposed: u_im = u_im.transpose(-1, -2)
+        L = u_re.size(-1)
+
+        # Compute SSM Kernel
+        k_re = self.kernel_re(L=L) # (H L)
+        k_im = self.kernel_im(L=L) # (H L)
+
+        # Convolution
+        k_f_re = torch.fft.rfft(k_re, n=2*L) # (H L)
+        u_f_re = torch.fft.rfft(u_re, n=2*L) # (B H L)
+        y_re = torch.fft.irfft(u_f_re*k_f_re, n=2*L)[..., :L] # (B H L)
+        k_f_im = torch.fft.rfft(k_im, n=2*L) # (H L)
+        u_f_im = torch.fft.rfft(u_im, n=2*L) # (B H L)
+        y_im = torch.fft.irfft(u_f_im*k_f_im, n=2*L)[..., :L] # (B H L)
+
+        # Compute D term in state space equation - essentially a skip connection
+        y_re = y_re + u_re * self.D_re.unsqueeze(-1)
+        y_im = y_im + u_im * self.D_im.unsqueeze(-1)
+        y_re = self.dropout(self.activation_re(y_re))
+        y_im = self.dropout(self.activation_im(y_im))
         y = torch.stack((y_re, y_im), dim=-1)
         y = self.output_linear(y)
         if not self.transposed: y = y.transpose(-2, -3)
